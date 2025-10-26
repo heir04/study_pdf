@@ -17,12 +17,14 @@ export default function LoginForm({ onSuccess, onSwitchToRegister }) {
 
     try {
       const result = await api.login(email, password);
+      
       if (result.status && result.data) {
         onSuccess(result.data);
       } else {
-        setError(result.message);
+        setError(result.message || 'Login failed. Please try again.');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);

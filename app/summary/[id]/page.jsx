@@ -301,7 +301,7 @@ export default function SummaryPage() {
               <div className="space-y-6">
                 {questions.map((question, index) => (
                   <div
-                    key={question.id}
+                    key={question.id || index}
                     className="border-b border-gray-200 pb-6 last:border-b-0"
                   >
                     <div className="flex items-start mb-4">
