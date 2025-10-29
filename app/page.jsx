@@ -86,9 +86,6 @@ export default function StudyPDFLanding() {
                 Upload Your First PDF
                 <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition" />
               </button>
-              <button className="bg-white text-gray-900 px-8 py-4 rounded-full text-lg font-semibold border-2 border-gray-200 hover:border-blue-600 transition">
-                See Demo
-              </button>
             </div>
 
             <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">

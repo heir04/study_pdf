@@ -77,14 +77,24 @@ export default function SummaryPage() {
     }
   };
 
-  const goToPreviousQuestion = () => {
+  const goToPreviousQuestion = async () => {
     if (currentQuestionIndex > 0) {
-      // Save current answer before navigating (don't submit)
-      if (selectedAnswer) {
-        setUserAnswers(prev => ({
-          ...prev,
-          [currentQuestionIndex]: selectedAnswer
-        }));
+      // Submit current answer if selected and changed
+      if (selectedAnswer && selectedAnswer !== userAnswers[currentQuestionIndex]) {
+        setSubmitting(true);
+        try {
+          await api.submitAnswer(questions[currentQuestionIndex].id, selectedAnswer, token);
+          // Store that this answer was submitted
+          setUserAnswers(prev => ({
+            ...prev,
+            [currentQuestionIndex]: selectedAnswer
+          }));
+        } catch (err) {
+          console.error('Failed to submit answer');
+          setSubmitting(false);
+          return; // Don't navigate if submission failed
+        }
+        setSubmitting(false);
       }
       
       setCurrentQuestionIndex(currentQuestionIndex - 1);
@@ -93,8 +103,8 @@ export default function SummaryPage() {
 
   const goToNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1) {
-      // Submit current answer if selected
-      if (selectedAnswer && !userAnswers[currentQuestionIndex]) {
+      // Submit current answer if selected and (new or changed)
+      if (selectedAnswer && selectedAnswer !== userAnswers[currentQuestionIndex]) {
         setSubmitting(true);
         try {
           await api.submitAnswer(questions[currentQuestionIndex].id, selectedAnswer, token);
@@ -120,8 +130,8 @@ export default function SummaryPage() {
     
     setSubmitting(true);
     try {
-      // Submit current answer if not already submitted
-      if (selectedAnswer && !userAnswers[currentQuestionIndex]) {
+      // Submit current answer if selected and (new or changed)
+      if (selectedAnswer && selectedAnswer !== userAnswers[currentQuestionIndex]) {
         await api.submitAnswer(questions[currentQuestionIndex].id, selectedAnswer, token);
       }
       
