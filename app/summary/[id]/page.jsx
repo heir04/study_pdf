@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Loader2, BookOpen, Brain, Award, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, BookOpen, Brain, Award, ChevronRight, ChevronLeft, CheckCircle, XCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import Navbar from '@/components/shared/Navbar';
 
@@ -21,6 +21,7 @@ export default function SummaryPage() {
   const [viewMode, setViewMode] = useState('summary');
   const [submitting, setSubmitting] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [userAnswers, setUserAnswers] = useState({}); // Store all answers keyed by question index
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -35,6 +36,13 @@ export default function SummaryPage() {
     setUser(JSON.parse(storedUser));
     loadSummary(storedToken);
   }, [summaryId, router]);
+
+  // Load the stored answer when currentQuestionIndex changes
+  useEffect(() => {
+    if (viewMode === 'quiz' && questions.length > 0) {
+      setSelectedAnswer(userAnswers[currentQuestionIndex] || null);
+    }
+  }, [currentQuestionIndex, viewMode, questions.length]);
 
   const loadSummary = async (authToken) => {
     try {
@@ -60,6 +68,7 @@ export default function SummaryPage() {
         setViewMode('quiz');
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
+        setUserAnswers({}); // Reset all answers when starting a new quiz
       }
     } catch (err) {
       console.error('Failed to load quiz');
@@ -68,21 +77,56 @@ export default function SummaryPage() {
     }
   };
 
-  const submitAnswer = async () => {
-    if (!token || !selectedAnswer || !questions[currentQuestionIndex]) return;
+  const goToPreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      // Save current answer before navigating (don't submit)
+      if (selectedAnswer) {
+        setUserAnswers(prev => ({
+          ...prev,
+          [currentQuestionIndex]: selectedAnswer
+        }));
+      }
+      
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const goToNextQuestion = async () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      // Submit current answer if selected
+      if (selectedAnswer && !userAnswers[currentQuestionIndex]) {
+        setSubmitting(true);
+        try {
+          await api.submitAnswer(questions[currentQuestionIndex].id, selectedAnswer, token);
+          // Store that this answer was submitted
+          setUserAnswers(prev => ({
+            ...prev,
+            [currentQuestionIndex]: selectedAnswer
+          }));
+        } catch (err) {
+          console.error('Failed to submit answer');
+          setSubmitting(false);
+          return; // Don't navigate if submission failed
+        }
+        setSubmitting(false);
+      }
+      
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  };
+
+  const submitCurrentAndFinish = async () => {
+    if (!token) return;
     
     setSubmitting(true);
     try {
-      await api.submitAnswer(questions[currentQuestionIndex].id, selectedAnswer, token);
-      
-      // Move to next question or finish
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setSelectedAnswer(null);
-      } else {
-        // Quiz completed, load results
-        await loadQuizResults();
+      // Submit current answer if not already submitted
+      if (selectedAnswer && !userAnswers[currentQuestionIndex]) {
+        await api.submitAnswer(questions[currentQuestionIndex].id, selectedAnswer, token);
       }
+      
+      // Quiz completed, load results
+      await loadQuizResults();
     } catch (err) {
       console.error('Failed to submit answer');
     } finally {
@@ -256,23 +300,51 @@ export default function SummaryPage() {
                 ))}
               </div>
 
-              {/* Submit Button */}
-              <button
-                onClick={submitAnswer}
-                disabled={!selectedAnswer || submitting}
-                className="w-full mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {submitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : currentQuestionIndex < questions.length - 1 ? (
-                  <>
-                    Next Question
-                    <ChevronRight className="w-5 h-5 ml-2" />
-                  </>
+              {/* Navigation Buttons */}
+              <div className="mt-6 flex gap-4">
+                {/* Previous Button */}
+                <button
+                  onClick={goToPreviousQuestion}
+                  disabled={currentQuestionIndex === 0}
+                  className="px-6 py-4 rounded-xl font-semibold border-2 border-gray-300 bg-white text-gray-700 hover:border-blue-600 hover:text-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:text-gray-700 flex items-center justify-center"
+                >
+                  <ChevronLeft className="w-5 h-5 mr-2" />
+                  Previous
+                </button>
+
+                {/* Next or Submit Button */}
+                {currentQuestionIndex < questions.length - 1 ? (
+                  <button
+                    onClick={goToNextQuestion}
+                    disabled={submitting}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {submitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        Next Question
+                        <ChevronRight className="w-5 h-5 ml-2" />
+                      </>
+                    )}
+                  </button>
                 ) : (
-                  'Finish Quiz'
+                  <button
+                    onClick={submitCurrentAndFinish}
+                    disabled={submitting}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {submitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        Submit Quiz
+                        <CheckCircle className="w-5 h-5 ml-2" />
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         )}

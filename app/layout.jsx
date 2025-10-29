@@ -4,7 +4,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'SummaQuiz - AI-Powered Learning Assistant',
+  title: 'StudyPDF - AI-Powered Learning Assistant',
   description: 'Transform learning with AI intelligence. Get smart summaries, and interactive quizzes.',
 }
 
